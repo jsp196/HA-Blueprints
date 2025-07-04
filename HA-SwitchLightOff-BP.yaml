@@ -90,10 +90,12 @@ variables:
     {% endif %}
 
 # The automation will trigger whenever one of the monitored devices changes its state.
-# You can add more triggers (e.g., a time pattern) when you create the automation.
+# We use the !input selectors directly here to avoid template parsing errors on startup.
 trigger:
   - platform: state
-    entity_id: "{{ all_entity_ids }}"
+    entity_id: !input lights_target
+  - platform: state
+    entity_id: !input switches_target
 
 # The condition checks if the number of devices that are currently off is greater than
 # or equal to the required number we calculated in the variables section.
