@@ -12,18 +12,18 @@ blueprint:
       name: Lights to Monitor
       description: Select the light entities to monitor. Leave blank if you only want to monitor switches.
       selector:
-        target:
-          entity:
-            domain: light
-      default: {}
+        entity:
+          domain: light
+          multiple: true
+      default: []
     switches_target:
       name: Switches to Monitor
       description: Select the switch entities to monitor. Leave blank if you only want to monitor lights.
       selector:
-        target:
-          entity:
-            domain: switch
-      default: {}
+        entity:
+          domain: switch
+          multiple: true
+      default: []
     threshold_type:
       name: Condition Type
       description: Choose whether to use a fixed number or a percentage for the condition.
@@ -60,10 +60,12 @@ blueprint:
 
 # This section defines variables that will be used in the automation logic.
 variables:
-  # Get the selected entities from the inputs. Use default empty lists to prevent errors if none are selected.
+  # Get the selected entity lists from the inputs.
   lights: !input lights_target
   switches: !input switches_target
-  all_entity_ids: "{{ (lights.entity_id | default([])) + (switches.entity_id | default([])) }}"
+  
+  # Combine the lists of lights and switches into one master list of entity IDs.
+  all_entity_ids: "{{ (lights | default([])) + (switches | default([])) }}"
 
   # Count the total number of entities being monitored.
   total_entities: "{{ all_entity_ids | count }}"
@@ -90,7 +92,7 @@ variables:
     {% endif %}
 
 # The automation will trigger whenever one of the monitored devices changes its state.
-# We use the !input selectors directly here to avoid template parsing errors on startup.
+# The !input now correctly provides a list of entity IDs.
 trigger:
   - platform: state
     entity_id: !input lights_target
