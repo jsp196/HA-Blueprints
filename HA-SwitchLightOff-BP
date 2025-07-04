@@ -1,0 +1,107 @@
+blueprint:
+  name: Action on Device Off Count/Percentage
+  description: >-
+    Runs an action when a specific number or percentage of selected
+    lights and/or switches are in the 'off' state.
+
+    The trigger for this automation is any state change on the selected devices.
+    You can add your own triggers (like time or events) in the automation editor.
+  domain: automation
+  input:
+    lights_target:
+      name: Lights to Monitor
+      description: Select the light entities to monitor. Leave blank if you only want to monitor switches.
+      selector:
+        target:
+          entity:
+            domain: light
+      default: {}
+    switches_target:
+      name: Switches to Monitor
+      description: Select the switch entities to monitor. Leave blank if you only want to monitor lights.
+      selector:
+        target:
+          entity:
+            domain: switch
+      default: {}
+    threshold_type:
+      name: Condition Type
+      description: Choose whether to use a fixed number or a percentage for the condition.
+      selector:
+        select:
+          options:
+            - "Number"
+            - "Percentage"
+      default: "Number"
+    threshold_number:
+      name: Number of Devices Off
+      description: (Used if Condition Type is 'Number') Run action when at least this many devices are off.
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+      default: 1
+    threshold_percentage:
+      name: Percentage of Devices Off
+      description: (Used if Condition Type is 'Percentage') Run action when at least this percentage of devices are off.
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+      default: 50
+    action_to_run:
+      name: Actions
+      description: The actions to run when the condition is met.
+      selector:
+        action:
+
+# This section defines variables that will be used in the automation logic.
+variables:
+  # Get the selected entities from the inputs. Use default empty lists to prevent errors if none are selected.
+  lights: !input lights_target
+  switches: !input switches_target
+  all_entity_ids: "{{ (lights.entity_id | default([])) + (switches.entity_id | default([])) }}"
+
+  # Count the total number of entities being monitored.
+  total_entities: "{{ all_entity_ids | count }}"
+
+  # Create a list containing only the entities that are currently 'off'.
+  off_entities: "{{ all_entity_ids | select('is_state', 'off') | list }}"
+
+  # Count how many entities are in the 'off' state.
+  off_count: "{{ off_entities | count }}"
+
+  # Get the user-defined threshold type and values from the inputs.
+  threshold_type: !input threshold_type
+  threshold_number: !input threshold_number
+  threshold_percentage: !input threshold_percentage
+
+  # Calculate the required number of 'off' devices based on the selected condition type.
+  # If 'Percentage' is chosen, it calculates the number and rounds up to the nearest whole number.
+  # Otherwise, it uses the fixed number.
+  required_off_count: >
+    {% if threshold_type == 'Percentage' and total_entities > 0 %}
+      {{ (total_entities * (threshold_percentage / 100)) | round(0, 'ceil') | int }}
+    {% else %}
+      {{ threshold_number | int }}
+    {% endif %}
+
+# The automation will trigger whenever one of the monitored devices changes its state.
+# You can add more triggers (e.g., a time pattern) when you create the automation.
+trigger:
+  - platform: state
+    entity_id: "{{ all_entity_ids }}"
+
+# The condition checks if the number of devices that are currently off is greater than
+# or equal to the required number we calculated in the variables section.
+condition:
+  - condition: template
+    value_template: "{{ off_count >= required_off_count }}"
+
+# This is the action that will be executed when the trigger and condition are met.
+action: !input action_to_run
+
+mode: single
