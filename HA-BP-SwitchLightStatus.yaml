@@ -98,9 +98,6 @@ blueprint:
 
 # This section defines variables that will be used in the automation logic.
 variables:
-  # Get the trigger mode to use in templates below.
-  trigger_mode: !input trigger_mode
-  
   # Get the selected entity lists from the inputs.
   lights: !input lights_target
   switches: !input switches_target
@@ -130,22 +127,27 @@ variables:
       {{ threshold_number | int }}
     {% endif %}
 
-# The trigger is now dynamic. Only one of these triggers will be active at a time,
-# based on the 'trigger_mode' selected. The other will be disabled by the 'none' value.
+# Both triggers are always active. We will use a condition to check which one fired.
 trigger:
   - platform: time
-    at: "{{ !input trigger_time_absolute if trigger_mode == 'absolute' else none }}"
+    id: 'absolute'
+    at: !input trigger_time_absolute
   - platform: sun
-    event: "{{ !input trigger_time_relative_event if trigger_mode == 'relative' else none }}"
-    offset: "{{ !input trigger_time_relative_offset if trigger_mode == 'relative' else none }}"
+    id: 'relative'
+    event: !input trigger_time_relative_event
+    offset: !input trigger_time_relative_offset
 
-# The condition checks if the number of devices that are currently off is greater than
-# or equal to the required number we calculated in the variables section.
+# The condition block now has two parts.
 condition:
+  # 1. First, check if the trigger that fired matches the mode selected by the user.
+  - condition: template
+    value_template: "{{ trigger.id == !input trigger_mode }}"
+  
+  # 2. If the trigger was the correct one, then check the device count.
   - condition: template
     value_template: "{{ off_count >= required_off_count }}"
 
-# This is the action that will be executed when the trigger and condition are met.
+# This is the action that will be executed when the trigger and all conditions are met.
 action: !input action_to_run
 
 mode: single
