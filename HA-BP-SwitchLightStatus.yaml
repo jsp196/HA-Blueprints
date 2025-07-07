@@ -8,9 +8,13 @@ blueprint:
   input:
     trigger_time:
       name: Trigger Time
-      description: The time to check the devices. This can be a fixed time (e.g., "22:00:00") or use sunrise/sunset with an offset (e.g., "sunset -00:30:00").
+      description: >-
+        The time to check the devices. 
+        Use a 24-hour format for a fixed time (e.g., "22:00:00").
+        Or, use "sunrise" or "sunset" with an optional offset.
+        Examples: "sunset", "sunrise", "sunset -00:45:00", "sunrise +01:30:00".
       selector:
-        time:
+        text:
       default: "22:00:00"
     lights_target:
       name: Lights to Monitor
