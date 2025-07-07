@@ -98,23 +98,15 @@ blueprint:
 
 # This section defines variables that will be used in the automation logic.
 variables:
-  # Get the trigger mode to decide which time input to use
+  # Get the trigger mode to use in templates below.
   trigger_mode: !input trigger_mode
   
-  # Determine the final trigger time based on the selected mode
-  final_trigger_time: >
-    {% if trigger_mode == 'relative' %}
-      {{ {"event": !input trigger_time_relative_event, "offset": !input trigger_time_relative_offset} }}
-    {% else %}
-      {{ !input trigger_time_absolute }}
-    {% endif %}
-
   # Get the selected entity lists from the inputs.
   lights: !input lights_target
   switches: !input switches_target
   
   # Combine the lists of lights and switches into one master list of entity IDs.
-  all_entity_ids: "{{ (lights | default([])) + (switches | default([])) }}"
+  all_entity_ids: "{{ lights + switches }}"
 
   # Count the total number of entities being monitored.
   total_entities: "{{ all_entity_ids | count }}"
@@ -138,13 +130,14 @@ variables:
       {{ threshold_number | int }}
     {% endif %}
 
-# The trigger is now dynamic based on the 'trigger_mode' input.
+# The trigger is now dynamic. Only one of these triggers will be active at a time,
+# based on the 'trigger_mode' selected. The other will be disabled by the 'none' value.
 trigger:
   - platform: time
-    at: "{{ final_trigger_time if trigger_mode == 'absolute' else none }}"
+    at: "{{ !input trigger_time_absolute if trigger_mode == 'absolute' else none }}"
   - platform: sun
-    event: "{{ final_trigger_time.event if trigger_mode == 'relative' else none }}"
-    offset: "{{ final_trigger_time.offset if trigger_mode == 'relative' else none }}"
+    event: "{{ !input trigger_time_relative_event if trigger_mode == 'relative' else none }}"
+    offset: "{{ !input trigger_time_relative_offset if trigger_mode == 'relative' else none }}"
 
 # The condition checks if the number of devices that are currently off is greater than
 # or equal to the required number we calculated in the variables section.
