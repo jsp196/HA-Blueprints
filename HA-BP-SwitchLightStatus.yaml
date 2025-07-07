@@ -1,24 +1,52 @@
 blueprint:
-  name: Action on Device Off Count/Percentage (Time-Based)
+  name: Action on Device Off Count (Advanced Time Control)
   description: >-
-    At a specified time (e.g., a fixed time, sunrise, or sunset),
-    this automation checks if a certain number or percentage of selected
+    At a specified time, this automation checks if a certain number or percentage of selected
     devices are off. If the condition is met, it runs an action.
+    You can choose between a fixed time or a time relative to sunrise/sunset.
   domain: automation
   input:
-    trigger_time:
-      name: Trigger Time
-      description: >-
-        The time to check the devices. 
-        Use a 24-hour format for a fixed time (e.g., "22:00:00").
-        Or, use "sunrise" or "sunset" with an optional offset.
-        Examples: "sunset", "sunrise", "sunset -00:45:00", "sunrise +01:30:00".
+    # --- TRIGGER CONTROLS ---
+    trigger_mode:
+      name: Trigger Type
+      description: Choose how to trigger the automation.
+      selector:
+        select:
+          options:
+            - label: "At a specific time (Absolute)"
+              value: "absolute"
+            - label: "Relative to Sun (Sunrise/Sunset)"
+              value: "relative"
+      default: "absolute"
+
+    trigger_time_absolute:
+      name: Time (Absolute)
+      description: Select the specific time of day to trigger.
+      selector:
+        time:
+      default: "22:00:00"
+
+    trigger_time_relative_event:
+      name: Sun Event (Relative)
+      description: Choose to trigger at sunrise or sunset.
+      selector:
+        select:
+          options:
+            - "sunrise"
+            - "sunset"
+      default: "sunset"
+
+    trigger_time_relative_offset:
+      name: Offset (Relative)
+      description: "Set an offset from sunrise/sunset. Use negative for before. Examples: -00:45:00, 01:30:00"
       selector:
         text:
-      default: "22:00:00"
+      default: "00:00:00"
+
+    # --- DEVICE AND THRESHOLD CONTROLS ---
     lights_target:
       name: Lights to Monitor
-      description: Select the light entities to monitor. Leave blank if you only want to monitor switches.
+      description: Select the light entities to monitor.
       selector:
         entity:
           domain: light
@@ -26,7 +54,7 @@ blueprint:
       default: []
     switches_target:
       name: Switches to Monitor
-      description: Select the switch entities to monitor. Leave blank if you only want to monitor lights.
+      description: Select the switch entities to monitor.
       selector:
         entity:
           domain: switch
@@ -60,6 +88,8 @@ blueprint:
           step: 1
           unit_of_measurement: "%"
       default: 50
+
+    # --- ACTION ---
     action_to_run:
       name: Actions
       description: The actions to run when the condition is met.
@@ -68,6 +98,17 @@ blueprint:
 
 # This section defines variables that will be used in the automation logic.
 variables:
+  # Get the trigger mode to decide which time input to use
+  trigger_mode: !input trigger_mode
+  
+  # Determine the final trigger time based on the selected mode
+  final_trigger_time: >
+    {% if trigger_mode == 'relative' %}
+      {{ {"event": !input trigger_time_relative_event, "offset": !input trigger_time_relative_offset} }}
+    {% else %}
+      {{ !input trigger_time_absolute }}
+    {% endif %}
+
   # Get the selected entity lists from the inputs.
   lights: !input lights_target
   switches: !input switches_target
@@ -90,8 +131,6 @@ variables:
   threshold_percentage: !input threshold_percentage
 
   # Calculate the required number of 'off' devices based on the selected condition type.
-  # If 'Percentage' is chosen, it calculates the number and rounds up to the nearest whole number.
-  # Otherwise, it uses the fixed number.
   required_off_count: >
     {% if threshold_type == 'Percentage' and total_entities > 0 %}
       {{ (total_entities * (threshold_percentage / 100)) | round(0, 'ceil') | int }}
@@ -99,10 +138,13 @@ variables:
       {{ threshold_number | int }}
     {% endif %}
 
-# The automation will trigger at the time specified in the 'trigger_time' input.
+# The trigger is now dynamic based on the 'trigger_mode' input.
 trigger:
   - platform: time
-    at: !input trigger_time
+    at: "{{ final_trigger_time if trigger_mode == 'absolute' else none }}"
+  - platform: sun
+    event: "{{ final_trigger_time.event if trigger_mode == 'relative' else none }}"
+    offset: "{{ final_trigger_time.offset if trigger_mode == 'relative' else none }}"
 
 # The condition checks if the number of devices that are currently off is greater than
 # or equal to the required number we calculated in the variables section.
