@@ -1,13 +1,17 @@
 blueprint:
-  name: Action on Device Off Count/Percentage
+  name: Action on Device Off Count/Percentage (Time-Based)
   description: >-
-    Runs an action when a specific number or percentage of selected
-    lights and/or switches are in the 'off' state.
-
-    The trigger for this automation is any state change on the selected devices.
-    You can add your own triggers (like time or events) in the automation editor.
+    At a specified time (e.g., a fixed time, sunrise, or sunset),
+    this automation checks if a certain number or percentage of selected
+    devices are off. If the condition is met, it runs an action.
   domain: automation
   input:
+    trigger_time:
+      name: Trigger Time
+      description: The time to check the devices. This can be a fixed time (e.g., "22:00:00") or use sunrise/sunset with an offset (e.g., "sunset -00:30:00").
+      selector:
+        time:
+      default: "22:00:00"
     lights_target:
       name: Lights to Monitor
       description: Select the light entities to monitor. Leave blank if you only want to monitor switches.
@@ -91,13 +95,10 @@ variables:
       {{ threshold_number | int }}
     {% endif %}
 
-# The automation will trigger whenever one of the monitored devices changes its state.
-# The !input now correctly provides a list of entity IDs.
+# The automation will trigger at the time specified in the 'trigger_time' input.
 trigger:
-  - platform: state
-    entity_id: !input lights_target
-  - platform: state
-    entity_id: !input switches_target
+  - platform: time
+    at: !input trigger_time
 
 # The condition checks if the number of devices that are currently off is greater than
 # or equal to the required number we calculated in the variables section.
