@@ -98,10 +98,14 @@ blueprint:
 
 # This section defines variables that will be used in the automation logic.
 variables:
-  # Get the selected entity lists from the inputs.
+  # Load all necessary inputs into variables so they can be used in templates.
+  trigger_mode: !input trigger_mode
   lights: !input lights_target
   switches: !input switches_target
-  
+  threshold_type: !input threshold_type
+  threshold_number: !input threshold_number
+  threshold_percentage: !input threshold_percentage
+
   # Combine the lists of lights and switches into one master list of entity IDs.
   all_entity_ids: "{{ lights + switches }}"
 
@@ -114,11 +118,6 @@ variables:
   # Count how many entities are in the 'off' state.
   off_count: "{{ off_entities | count }}"
 
-  # Get the user-defined threshold type and values from the inputs.
-  threshold_type: !input threshold_type
-  threshold_number: !input threshold_number
-  threshold_percentage: !input threshold_percentage
-
   # Calculate the required number of 'off' devices based on the selected condition type.
   required_off_count: >
     {% if threshold_type == 'Percentage' and total_entities > 0 %}
@@ -127,7 +126,7 @@ variables:
       {{ threshold_number | int }}
     {% endif %}
 
-# Both triggers are always active. We will use a condition to check which one fired.
+# Both triggers are defined here. We give them IDs so we can check which one fired.
 trigger:
   - platform: time
     id: 'absolute'
@@ -139,9 +138,10 @@ trigger:
 
 # The condition block now has two parts.
 condition:
-  # 1. First, check if the trigger that fired matches the mode selected by the user.
+  # 1. First, check if the trigger that fired (trigger.id) matches the mode selected by the user.
+  #    We use the 'trigger_mode' variable defined above, which fixes the error.
   - condition: template
-    value_template: "{{ trigger.id == !input trigger_mode }}"
+    value_template: "{{ trigger.id == trigger_mode }}"
   
   # 2. If the trigger was the correct one, then check the device count.
   - condition: template
